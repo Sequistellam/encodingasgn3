@@ -1,0 +1,73 @@
+using System;
+using System.IO;
+using System.Text.Json;
+using System.Xml.Linq;
+
+public class Program
+{
+    public static void Main()
+    {
+        // Define the paths for the JSON and XML files.
+        var jsonFilePath = @"C:\Georgian\Geogrian exept Architecture VM\Encoding\Asgn 3\books.json";
+        var xmlFilePath = @"C:\Georgian\Geogrian exept Architecture VM\Encoding\Asgn 3\books.xml";
+
+        // Load the content of the XML file into an XDocument.
+        var xDocument = XDocument.Load(xmlFilePath);
+
+        // Convert the XDocument to JSON and save it to the specified file.
+        var json = XmlToJson(xDocument);
+        File.WriteAllText(jsonFilePath, json);
+
+        Console.WriteLine("Conversion successful!");
+    }
+
+    // Converts an XML document to JSON.
+    private static string XmlToJson(XDocument xDocument)
+    {
+        var jsonObject = new JsonObject();
+
+        ConvertToJson(xDocument.Root, jsonObject);
+
+        return jsonObject.ToString();
+    }
+
+    // Recursive method to convert XML elements to JSON elements.
+    private static void ConvertToJson(XElement xElement, JsonObject jsonObject)
+    {
+        // Check if the element has child elements (non-leaf node).
+        if (xElement.HasElements)
+        {
+            var nestedJsonObject = new JsonObject();
+
+            foreach (var childElement in xElement.Elements())
+            {
+                // Recursively convert child elements to JSON.
+                ConvertToJson(childElement, nestedJsonObject);
+            }
+
+            jsonObject[xElement.Name.LocalName] = nestedJsonObject;
+        }
+        else
+        {
+            // Leaf node (no child elements), set the value directly.
+            jsonObject[xElement.Name.LocalName] = xElement.Value;
+        }
+    }
+}
+
+// Custom JsonObject class to create a JSON representation.
+public class JsonObject
+{
+    private readonly Dictionary<string, object> _elements = new Dictionary<string, object>();
+
+    public object this[string propertyName]
+    {
+        get => _elements[propertyName];
+        set => _elements[propertyName] = value;
+    }
+
+    public override string ToString()
+    {
+        return JsonSerializer.Serialize(_elements, new JsonSerializerOptions { WriteIndented = true });
+    }
+}
