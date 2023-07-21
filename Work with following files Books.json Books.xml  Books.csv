@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using CsvHelper;
 using Newtonsoft.Json.Linq;
+using OfficeOpenXml;
 
 public class Book
 {
@@ -25,30 +27,72 @@ class Program
         var xmlUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.xml";
         var csvUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.csv";
 
-        await ProcessJsonAsync(jsonUrl);
-        await ProcessXmlAsync(xmlUrl);
-        await ProcessCsvAsync(csvUrl);
+        Console.WriteLine("Enter the directory where you want to create the 'books.xlsx' file:");
+        var directory = Console.ReadLine();
+
+        var booksJson = await ProcessJsonAsync(jsonUrl);
+        var booksXml = await ProcessXmlAsync(xmlUrl);
+        var booksCsv = await ProcessCsvAsync(csvUrl);
+
+        WriteToExcel(Path.Combine(directory, "booksJSON.xlsx"), booksJson);
+        WriteToExcel(Path.Combine(directory, "booksXML.xlsx"), booksXml);
+        WriteToExcel(Path.Combine(directory, "booksCSV.xlsx"), booksCsv);
+
+        var booksAll = new List<Book>();
+        booksAll.AddRange(booksJson);
+        booksAll.AddRange(booksXml);
+        booksAll.AddRange(booksCsv);
+        WriteToExcel(Path.Combine(directory, "books.xlsx"), booksAll);
 
         Console.ReadKey();
     }
 
-    public static async Task ProcessJsonAsync(string url)
+    public static void WriteToExcel(string path, List<Book> books)
     {
+        using (var package = new ExcelPackage(new FileInfo(path)))
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Books");
+
+            // Headers
+            worksheet.Cells[1, 1].Value = "Category";
+            worksheet.Cells[1, 2].Value = "Title";
+            worksheet.Cells[1, 3].Value = "Author";
+            worksheet.Cells[1, 4].Value = "Year";
+            worksheet.Cells[1, 5].Value = "Price";
+
+            // Data
+            for (int i = 0; i < books.Count; i++)
+            {
+                worksheet.Cells[i + 2, 1].Value = books[i].Category;
+                worksheet.Cells[i + 2, 2].Value = books[i].Title;
+                worksheet.Cells[i + 2, 3].Value = books[i].Author;
+                worksheet.Cells[i + 2, 4].Value = books[i].Year;
+                worksheet.Cells[i + 2, 5].Value = books[i].Price;
+            }
+
+            package.Save();
+        }
+    }
+
+    public static async Task<List<Book>> ProcessJsonAsync(string url)
+    {
+        var books = new List<Book>();
+
         using (var client = new HttpClient())
         {
             var response = await client.GetStringAsync(url);
             var jObject = JObject.Parse(response);
-            var books = jObject["bookstore"]["book"].Children();
+            var bookObjects = jObject["bookstore"]["book"].Children();
 
             Console.WriteLine("\nRead JSON File:");
             Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
 
-            foreach (var book in books)
+            foreach (var bookObject in bookObjects)
             {
-                var title = book["title"]["__text"].ToString();
-                var authors = book["author"] is JArray ? book["author"].Select(a => a.ToString()) : new[] { book["author"].ToString() };
-                var price = book["price"].ToString();
-                var category = book["_category"].ToString();
+                var title = bookObject["title"]["__text"].ToString();
+                var authors = bookObject["author"] is JArray ? bookObject["author"].Select(a => a.ToString()) : new[] { bookObject["author"].ToString() };
+                var price = bookObject["price"].ToString();
+                var category = bookObject["_category"].ToString();
 
                 Console.WriteLine($"{category.PadRight(15)} {title.PadRight(25)} {authors.First().PadRight(50)} {price}");
 
@@ -56,27 +100,41 @@ class Program
                 {
                     Console.WriteLine($"{"".PadRight(15)} {"".PadRight(25)} {author.PadRight(50)}");
                 }
+
+                // Add each book to the list
+                books.Add(new Book
+                {
+                    Category = category,
+                    Title = title,
+                    Author = string.Join(", ", authors),
+                    Price = price
+                    // Year is missing in your provided JSON structure. You may need to adjust this based on your actual data.
+                });
             }
         }
+
+        return books;
     }
 
-    public static async Task ProcessXmlAsync(string url)
+    public static async Task<List<Book>> ProcessXmlAsync(string url)
     {
+        var books = new List<Book>();
+
         using (var client = new HttpClient())
         {
             var response = await client.GetStringAsync(url);
             var xDocument = XDocument.Parse(response);
-            var books = xDocument.Descendants("book");
+            var bookElements = xDocument.Descendants("book");
 
             Console.WriteLine("\nRead XML File:");
             Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
 
-            foreach (var book in books)
+            foreach (var bookElement in bookElements)
             {
-                var title = book.Element("title")?.Value;
-                var authors = book.Elements("author").Select(a => a.Value);
-                var price = book.Element("price")?.Value;
-                var category = book.Attribute("category")?.Value;
+                var title = bookElement.Element("title")?.Value;
+                var authors = bookElement.Elements("author").Select(a => a.Value);
+                var price = bookElement.Element("price")?.Value;
+                var category = bookElement.Attribute("category")?.Value;
 
                 Console.WriteLine($"{category.PadRight(15)} {title.PadRight(25)} {authors.First().PadRight(50)} {price}");
 
@@ -84,12 +142,26 @@ class Program
                 {
                     Console.WriteLine($"{"".PadRight(15)} {"".PadRight(25)} {author.PadRight(50)}");
                 }
+
+                // Add each book to the list
+                books.Add(new Book
+                {
+                    Category = category,
+                    Title = title,
+                    Author = string.Join(", ", authors),
+                    Price = price
+                    // Year is missing in your provided XML structure. You may need to adjust this based on your actual data.
+                });
             }
         }
+
+        return books;
     }
 
-    public static async Task ProcessCsvAsync(string url)
+    public static async Task<List<Book>> ProcessCsvAsync(string url)
     {
+        var books = new List<Book>();
+
         using (var client = new HttpClient())
         using (var reader = new StreamReader(await client.GetStreamAsync(url)))
         using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
@@ -111,7 +183,12 @@ class Program
                 {
                     Console.WriteLine($"{"".PadRight(15)} {"".PadRight(25)} {author.PadRight(50)}");
                 }
+
+                // Add each book to the list
+                books.Add(record);
             }
         }
+
+        return books;
     }
 }
