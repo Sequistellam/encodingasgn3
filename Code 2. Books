@@ -23,21 +23,26 @@ class Program
 {
     static async Task Main(string[] args)
     {
+        // URLs for JSON, XML, and CSV data sources
         var jsonUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.json";
         var xmlUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.xml";
         var csvUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.csv";
 
+        // Ask the user to provide the directory where the 'books.xlsx' file will be created
         Console.WriteLine("Enter the directory where you want to create the 'books.xlsx' file:");
         var directory = Console.ReadLine();
 
+        // Process JSON, XML, and CSV data asynchronously and retrieve lists of Book objects
         var booksJson = await ProcessJsonAsync(jsonUrl);
         var booksXml = await ProcessXmlAsync(xmlUrl);
         var booksCsv = await ProcessCsvAsync(csvUrl);
 
+        // Write each list of books to separate Excel files
         WriteToExcel(Path.Combine(directory, "booksJSON.xlsx"), booksJson);
         WriteToExcel(Path.Combine(directory, "booksXML.xlsx"), booksXml);
         WriteToExcel(Path.Combine(directory, "booksCSV.xlsx"), booksCsv);
 
+        // Merge all lists of books and write to a single Excel file
         var booksAll = new List<Book>();
         booksAll.AddRange(booksJson);
         booksAll.AddRange(booksXml);
@@ -47,6 +52,7 @@ class Program
         Console.ReadKey();
     }
 
+    // Method to write a list of books to an Excel file
     public static void WriteToExcel(string path, List<Book> books)
     {
         using (var package = new ExcelPackage(new FileInfo(path)))
@@ -74,6 +80,7 @@ class Program
         }
     }
 
+    // Method to process JSON data and return a list of Book objects
     public static async Task<List<Book>> ProcessJsonAsync(string url)
     {
         var books = new List<Book>();
@@ -84,6 +91,7 @@ class Program
             var jObject = JObject.Parse(response);
             var bookObjects = jObject["bookstore"]["book"].Children();
 
+            // Output data from JSON file to console for display
             Console.WriteLine("\nRead JSON File:");
             Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
 
@@ -94,6 +102,7 @@ class Program
                 var price = bookObject["price"].ToString();
                 var category = bookObject["_category"].ToString();
 
+                // Output book details to console
                 Console.WriteLine($"{category.PadRight(15)} {title.PadRight(25)} {authors.First().PadRight(50)} {price}");
 
                 foreach (var author in authors.Skip(1))
@@ -116,6 +125,7 @@ class Program
         return books;
     }
 
+    // Method to process XML data and return a list of Book objects
     public static async Task<List<Book>> ProcessXmlAsync(string url)
     {
         var books = new List<Book>();
@@ -126,6 +136,7 @@ class Program
             var xDocument = XDocument.Parse(response);
             var bookElements = xDocument.Descendants("book");
 
+            // Output data from XML file to console for display
             Console.WriteLine("\nRead XML File:");
             Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
 
@@ -136,6 +147,7 @@ class Program
                 var price = bookElement.Element("price")?.Value;
                 var category = bookElement.Attribute("category")?.Value;
 
+                // Output book details to console
                 Console.WriteLine($"{category.PadRight(15)} {title.PadRight(25)} {authors.First().PadRight(50)} {price}");
 
                 foreach (var author in authors.Skip(1))
@@ -158,6 +170,7 @@ class Program
         return books;
     }
 
+    // Method to process CSV data and return a list of Book objects
     public static async Task<List<Book>> ProcessCsvAsync(string url)
     {
         var books = new List<Book>();
@@ -168,6 +181,7 @@ class Program
         {
             var records = csv.GetRecords<Book>();
 
+            // Output data from CSV file to console for display
             Console.WriteLine("\nRead CSV File:");
             Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
 
@@ -177,6 +191,7 @@ class Program
                     ? record.Author.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries)
                     : new[] { record.Author };
 
+                // Output book details to console
                 Console.WriteLine($"{record.Category.PadRight(15)} {record.Title.PadRight(25)} {authors.First().PadRight(50)} {record.Price}");
 
                 foreach (var author in authors.Skip(1))
