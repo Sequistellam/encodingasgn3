@@ -1,0 +1,117 @@
+using System;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+using CsvHelper;
+using Newtonsoft.Json.Linq;
+
+public class Book
+{
+    public string Category { get; set; }
+    public string Title { get; set; }
+    public string Author { get; set; }
+    public string Year { get; set; }
+    public string Price { get; set; }
+}
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        var jsonUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.json";
+        var xmlUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.xml";
+        var csvUrl = "https://raw.githubusercontent.com/Sequistellam/encodingasgn3/main/books.csv";
+
+        await ProcessJsonAsync(jsonUrl);
+        await ProcessXmlAsync(xmlUrl);
+        await ProcessCsvAsync(csvUrl);
+
+        Console.ReadKey();
+    }
+
+    public static async Task ProcessJsonAsync(string url)
+    {
+        using (var client = new HttpClient())
+        {
+            var response = await client.GetStringAsync(url);
+            var jObject = JObject.Parse(response);
+            var books = jObject["bookstore"]["book"].Children();
+
+            Console.WriteLine("\nRead JSON File:");
+            Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
+
+            foreach (var book in books)
+            {
+                var title = book["title"]["__text"].ToString();
+                var authors = book["author"] is JArray ? book["author"].Select(a => a.ToString()) : new[] { book["author"].ToString() };
+                var price = book["price"].ToString();
+                var category = book["_category"].ToString();
+
+                Console.WriteLine($"{category.PadRight(15)} {title.PadRight(25)} {authors.First().PadRight(50)} {price}");
+
+                foreach (var author in authors.Skip(1))
+                {
+                    Console.WriteLine($"{"".PadRight(15)} {"".PadRight(25)} {author.PadRight(50)}");
+                }
+            }
+        }
+    }
+
+    public static async Task ProcessXmlAsync(string url)
+    {
+        using (var client = new HttpClient())
+        {
+            var response = await client.GetStringAsync(url);
+            var xDocument = XDocument.Parse(response);
+            var books = xDocument.Descendants("book");
+
+            Console.WriteLine("\nRead XML File:");
+            Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
+
+            foreach (var book in books)
+            {
+                var title = book.Element("title")?.Value;
+                var authors = book.Elements("author").Select(a => a.Value);
+                var price = book.Element("price")?.Value;
+                var category = book.Attribute("category")?.Value;
+
+                Console.WriteLine($"{category.PadRight(15)} {title.PadRight(25)} {authors.First().PadRight(50)} {price}");
+
+                foreach (var author in authors.Skip(1))
+                {
+                    Console.WriteLine($"{"".PadRight(15)} {"".PadRight(25)} {author.PadRight(50)}");
+                }
+            }
+        }
+    }
+
+    public static async Task ProcessCsvAsync(string url)
+    {
+        using (var client = new HttpClient())
+        using (var reader = new StreamReader(await client.GetStreamAsync(url)))
+        using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+        {
+            var records = csv.GetRecords<Book>();
+
+            Console.WriteLine("\nRead CSV File:");
+            Console.WriteLine("Category".PadRight(15) + "Title".PadRight(25) + "Author".PadRight(50) + "Price");
+
+            foreach (var record in records)
+            {
+                var authors = record.Author.Contains(",")
+                    ? record.Author.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries)
+                    : new[] { record.Author };
+
+                Console.WriteLine($"{record.Category.PadRight(15)} {record.Title.PadRight(25)} {authors.First().PadRight(50)} {record.Price}");
+
+                foreach (var author in authors.Skip(1))
+                {
+                    Console.WriteLine($"{"".PadRight(15)} {"".PadRight(25)} {author.PadRight(50)}");
+                }
+            }
+        }
+    }
+}
