@@ -9,32 +9,48 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
+        // API endpoint URL to fetch user data in JSON format
         var url = "https://jsonplaceholder.typicode.com/users";
 
         using (var client = new HttpClient())
         {
+            // Send an HTTP GET request to the specified URL
             var response = await client.GetAsync(url);
+
+            // Check if the request was successful (status code 200-299)
             if (response.IsSuccessStatusCode)
             {
+                // Read the JSON response content as a string
                 var json = await response.Content.ReadAsStringAsync();
+
+                // Parse the JSON string into a JsonDocument
                 var doc = JsonDocument.Parse(json);
 
+                // Prepare a string builder to construct the tabular representation of user data
                 var builder = new StringBuilder();
                 builder.AppendLine(String.Format("{0,-30} | {1,-40} | {2,-30} | {3,-70}", "Name", "Email", "Phone", "Address"));
                 builder.AppendLine(new string('-', 170)); // create a line
 
+                // Create an Excel package to store user data
                 using (var package = new ExcelPackage())
                 {
+                    // Create a worksheet named "Users" to store the data
                     var worksheet = package.Workbook.Worksheets.Add("Users");
+
+                    // Set column headers for the Excel sheet
                     worksheet.Cells[1, 1].Value = "ID";
                     worksheet.Cells[1, 2].Value = "Name";
                     worksheet.Cells[1, 3].Value = "Email";
                     worksheet.Cells[1, 4].Value = "Phone";
                     worksheet.Cells[1, 5].Value = "Address";
 
+                    // Initialize row counter for writing data to the Excel sheet
                     int row = 2;
+
+                    // Loop through each user item in the JSON document
                     foreach (var item in doc.RootElement.EnumerateArray())
                     {
+                        // Extract individual user properties from the JSON object
                         var id = item.GetProperty("id").GetInt32();
                         var name = item.GetProperty("name").GetString();
                         var email = item.GetProperty("email").GetString();
@@ -47,27 +63,36 @@ public class Program
                                       + ", "
                                       + item.GetProperty("address").GetProperty("zipcode").GetString();
 
+                        // Append the user data to the string builder in tabular format
                         builder.AppendLine(String.Format("{0,-30} | {1,-40} | {2,-30} | {3,-70}", name, email, phone, address));
 
+                        // Write the user data to the corresponding row in the Excel sheet
                         worksheet.Cells[row, 1].Value = id;
                         worksheet.Cells[row, 2].Value = name;
                         worksheet.Cells[row, 3].Value = email;
                         worksheet.Cells[row, 4].Value = phone;
                         worksheet.Cells[row, 5].Value = address;
 
+                        // Move to the next row for the next user
                         row++;
                     }
 
+                    // Auto-fit columns in the Excel sheet to adjust the width based on data
                     worksheet.Cells.AutoFitColumns();
 
+                    // Specify the file path to save the Excel file
                     string filePath = @"C:\Georgian\Geogrian exept Architecture VM\Encoding\Asgn 3\Users.xlsx";
+
+                    // Save the Excel package to the specified file path
                     package.SaveAs(new System.IO.FileInfo(filePath));
                 }
 
+                // Print the tabular representation of user data to the console
                 Console.WriteLine(builder.ToString());
             }
             else
             {
+                // Print an error message if the API request fails
                 Console.WriteLine("Failed to fetch data.");
             }
         }
