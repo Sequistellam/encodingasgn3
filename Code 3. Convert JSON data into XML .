@@ -1,0 +1,67 @@
+using System;
+using System.IO;
+using System.Text.Json;
+using System.Xml.Linq;
+
+public class Program
+{
+    public static void Main()
+    {
+        // Define the paths for the JSON and XML files.
+        var jsonFilePath = @"C:\Georgian\Geogrian exept Architecture VM\Encoding\Asgn 3\books.json";
+        var xmlFilePath = @"C:\Georgian\Geogrian exept Architecture VM\Encoding\Asgn 3\books.xml";
+
+        // Read the content of the JSON file into a string.
+        var jsonString = File.ReadAllText(jsonFilePath);
+
+        // Parse the JSON string into a JsonDocument object.
+        var jsonDocument = JsonDocument.Parse(jsonString);
+
+        // Convert the JsonDocument to an XDocument (XML representation).
+        var xDocument = JsonToXml(jsonDocument.RootElement);
+
+        // Save the generated XML to the specified file.
+        xDocument.Save(xmlFilePath);
+    }
+
+    // Converts a JSON element to XML using recursion.
+    private static XDocument JsonToXml(JsonElement jsonElement)
+    {
+        var xDocument = new XDocument();
+        ConvertToJson(jsonElement, xDocument, "Root");
+        return xDocument;
+    }
+
+    // Recursive method to convert JSON elements to XML elements.
+    private static void ConvertToJson(JsonElement jsonElement, XContainer parent, string name)
+    {
+        var element = new XElement(name);
+
+        // Check the value kind of the JSON element and handle accordingly.
+        switch (jsonElement.ValueKind)
+        {
+            case JsonValueKind.Object:
+                // For JSON objects, iterate through properties and convert each one.
+                foreach (var property in jsonElement.EnumerateObject())
+                {
+                    ConvertToJson(property.Value, element, property.Name);
+                }
+                break;
+            case JsonValueKind.Array:
+                // For JSON arrays, iterate through elements and convert each one.
+                var index = 0;
+                foreach (var value in jsonElement.EnumerateArray())
+                {
+                    ConvertToJson(value, element, $"Item{index++}");
+                }
+                break;
+            default:
+                // For scalar values (string, number, boolean), set the element's value directly.
+                element.Value = jsonElement.ToString();
+                break;
+        }
+
+        // Add the constructed element to its parent in the XML document.
+        parent.Add(element);
+    }
+}
